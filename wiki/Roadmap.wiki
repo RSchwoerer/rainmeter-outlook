@@ -1,0 +1,18 @@
+#summary Plans for the future
+#labels Featured
+
+= Roadmap =
+
+  # Planned features for MAPIFolder
+    * More properties
+      * indent
+      * navigating subfolders
+    * Allow selecting folders by name
+      * also exclude
+    * Create skins that 
+      * use default font and colors
+      * can display at least 10 folders
+      * maybe create skins for the most common themes
+  # First official release
+  # Have a look at tasks, calendar, and appointments
+     

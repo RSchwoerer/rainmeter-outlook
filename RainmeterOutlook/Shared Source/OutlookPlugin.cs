@@ -59,7 +59,6 @@ namespace OutlookPlugin
             try
             {
                 MeasureResult result = Measure(Instance);
-                Rainmeter.Log(Rainmeter.LogLevel.Error, Instance.Section);
                 return result.AsString(Instance);
             }
             catch (Exception e)
@@ -78,15 +77,16 @@ namespace OutlookPlugin
 
         private MeasureResult Measure(Rainmeter.Settings.InstanceSettings Instance)
         {
-            MeasureResult cached = GetCached(Instance);
+            MeasureResult cached = GetCached(Instance.Section, Instance);
             if (cached != null) return cached;
             return Evaluate(Instance);
         }
 
-        private MeasureResult GetCached(Rainmeter.Settings.InstanceSettings Instance)
+        private MeasureResult GetCached(string section, Rainmeter.Settings.InstanceSettings Instance)
         {
             MeasureResult cached;
-            if (!cache.TryGetValue("[" + Instance.Section + "]", out cached))
+            if (!section.StartsWith("[")) section = "[" + section + "]";
+            if (!cache.TryGetValue(Instance.INI_File + section, out cached))
             {
                 return null;
             }
@@ -109,16 +109,12 @@ namespace OutlookPlugin
             try
             {
                 result = GetResource(Instance);
-                string filter = Instance.INI_Value("Filter").Trim();
-                if (filter.Length > 0)
-                {
-                    result = result.Filter(filter, Instance);
-                } 
+                result = result.Filter(Instance);
                 string strIndex = Instance.INI_Value("Index").Trim();
                 if (strIndex.Length > 0)
                 {
                     int index = int.Parse(strIndex);
-                    result = result.SelectIndex(index, Instance);
+                    result = result.Index(index, Instance);
                 }
             }
             catch (Exception e)
@@ -127,7 +123,7 @@ namespace OutlookPlugin
             }
             finally
             {
-                cache["[" + Instance.Section + "]"] = result;
+                cache[Instance.INI_File + "[" + Instance.Section + "]"] = result;
             }
             return result;
         }
@@ -141,9 +137,8 @@ namespace OutlookPlugin
             }
             else if (resourceKey.StartsWith("["))
             {
-                MeasureResult r;
-                // don't access cache directly, age has to be checked
-                // if (cache.TryGetValue(resourceKey, out r)) return r;
+                MeasureResult r = GetCached(resourceKey, Instance);
+                if (r != null) return r;
                 if (TryUpdateOtherMeasure(resourceKey, Instance, out r)) return r;
                 return new ErrorResult(-1, "Unknown measure " + resourceKey);
             }
@@ -171,11 +166,7 @@ namespace OutlookPlugin
                 result = null;
                 return false;
             }
-            GetString(other);
-            if (!cache.TryGetValue(name, out result))
-            {
-                result = new ErrorResult(-1, name + " was not cached");
-            }
+            result = Measure(other);
             return true;
         }
 
@@ -250,12 +241,12 @@ namespace OutlookPlugin
             return "";
         }
 
-        public virtual MeasureResult Filter(string filter, Rainmeter.Settings.InstanceSettings Instance)
+        public virtual MeasureResult Filter(Rainmeter.Settings.InstanceSettings Instance)
         {
             return this;
         }
 
-        public virtual MeasureResult SelectIndex(int i, Rainmeter.Settings.InstanceSettings Instance)
+        public virtual MeasureResult Index(int i, Rainmeter.Settings.InstanceSettings Instance)
         {
             return NullResult.Instance;
         }
@@ -305,7 +296,7 @@ namespace OutlookPlugin
             return base.GetString(key, Instance);
         }
 
-        public override MeasureResult SelectIndex(int i, Rainmeter.Settings.InstanceSettings Instance)
+        public override MeasureResult Index(int i, Rainmeter.Settings.InstanceSettings Instance)
         {
             // don't hide errors after selecting
             return this;
@@ -358,12 +349,14 @@ namespace OutlookPlugin
 
     class MAPIFolderListResult : MeasureResult
     {
+        private MAPIFolderResult root;
         private List<MAPIFolderResult> folders;
 
         public MAPIFolderListResult(Outlook.MAPIFolder folder)
         {
+            root = new MAPIFolderResult(folder);
             this.folders = new List<MAPIFolderResult>();
-            fillList(new MAPIFolderResult(folder));
+            fillList(root);
         }
 
         private MAPIFolderListResult(List<MAPIFolderResult> folders)
@@ -382,34 +375,37 @@ namespace OutlookPlugin
 
         protected override double? GetDouble(string key, Rainmeter.Settings.InstanceSettings Instance)
         {
-            if (key == "%TotalUnreadItemCount")
+            switch (key)
             {
-                return folders[0].TotalUnreadItemCount;
+                case "%Count": return folders.Count;
+                case "%TotalUnreadItemCount": return root.TotalUnreadItemCount;
+                default: return base.GetDouble(key, Instance);
             }
-            return base.GetDouble(key, Instance);
         }
 
         protected override string GetString(string key, Rainmeter.Settings.InstanceSettings Instance)
         {
-            if (key == "%Message")
-            {
-                return "";
-            }
             return base.GetString(key, Instance);
         }
 
-        public override MeasureResult Filter(string filter, Rainmeter.Settings.InstanceSettings Instance)
+        public override MeasureResult Filter(Rainmeter.Settings.InstanceSettings Instance)
         {
-            List<MAPIFolderResult> list = folders.FindAll(delegate(MAPIFolderResult f)
+            List<MAPIFolderResult> list = folders;
+            string filter = Instance.INI_Value("Filter").Trim();
+            if (filter.Length > 0)
             {
-                return f.testFilter(filter, Instance);
-            });
+                list = list.FindAll(delegate(MAPIFolderResult f)
+                {
+                    return f.testFilter(filter, Instance);
+                });
+            }
+            if (list == folders) return this;
             return new MAPIFolderListResult(list);
         }
 
-        public override MeasureResult SelectIndex(int i, Rainmeter.Settings.InstanceSettings Instance)
+        public override MeasureResult Index(int i, Rainmeter.Settings.InstanceSettings Instance)
         {
-            if (i < folders.Count)
+            if (0 <= i && i < folders.Count)
             {
                 return folders[i];
             }
@@ -420,36 +416,40 @@ namespace OutlookPlugin
     class MAPIFolderResult : MeasureResult
     {
         private Outlook.MAPIFolder folder;
+        
         private List<MAPIFolderResult> folders;
+        public List<MAPIFolderResult> Folders { get { return folders; } }
+
+        private string name = null;
+        public string Name { get { if (name == null) name = folder.Name; return name; } }
+
+        private string path = null;
+        public string Path { get { if (path == null) path = folder.FolderPath; return path; } }
+
+        private int unread = -1;
+        public int UnreadItemCount { get { if (unread == -1) unread = folder.UnReadItemCount; return unread; } }
+
         private int totalUnread = -1;
-        private string name;
-        private int unread;
+        public int TotalUnreadItemCount { get { if (totalUnread == -1) InitTotalUnread(); return totalUnread; } }
+
+        private int itemCount = -1;
+        public int ItemCount { get { if (itemCount == -1) itemCount = folder.Items.Count; return itemCount; } }
 
         public MAPIFolderResult(Outlook.MAPIFolder folder)
         {
             this.folder = folder;
-            unread = folder.UnReadItemCount;
-            name = folder.Name;
 
             folders = new List<MAPIFolderResult>();
             foreach (Outlook.MAPIFolder f in folder.Folders)
             {
                 folders.Add(new MAPIFolderResult(f));
             }
-        }
-
-        public List<MAPIFolderResult> Folders
-        {
-            get { return folders; }
-        }
-
-        public int TotalUnreadItemCount
-        {
-            get
+            folders.Sort(delegate(MAPIFolderResult a, MAPIFolderResult b)
             {
-                if (totalUnread == -1) InitTotalUnread();
-                return totalUnread;
-            }
+                int c = a.Path.CompareTo(b.Path);
+                if (c == 0) c = a.Name.CompareTo(b.Name);
+                return c;
+            });
         }
 
         private void InitTotalUnread()
@@ -457,7 +457,7 @@ namespace OutlookPlugin
             totalUnread = folder.UnReadItemCount;
             foreach (MAPIFolderResult f in Folders)
             {
-                totalUnread += f.unread;
+                totalUnread += f.UnreadItemCount;
             }
         }
 
@@ -469,28 +469,23 @@ namespace OutlookPlugin
 
         protected override double? GetDouble(string key, Rainmeter.Settings.InstanceSettings Instance)
         {
-            if (key == "%TotalUnreadItemCount")
+            switch (key)
             {
-                return TotalUnreadItemCount;
+                case "%TotalUnreadItemCount": return TotalUnreadItemCount;
+                case "%UnreadItemCount": return UnreadItemCount;
+                case "%HasUnreadItems": return UnreadItemCount > 0 ? 1 : 0;
+                case "%ItemCount": return ItemCount;
+                default: return base.GetDouble(key, Instance);
             }
-            else if (key == "%UnreadItemCount")
-            {
-                return unread;
-            }
-            else if (key == "%HasUnreadItems")
-            {
-                return unread > 0 ? 1 : 0;
-            }
-            return base.GetDouble(key, Instance);
         }
 
         protected override string GetString(string key, Rainmeter.Settings.InstanceSettings Instance)
         {
-            if (key == "%Name")
+            switch (key)
             {
-                return name;
+                case "%Name": return Name;
+                default: return base.GetString(key, Instance);
             }
-            return base.GetString(key, Instance);
         }
     }
 

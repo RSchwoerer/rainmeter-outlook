@@ -23,7 +23,7 @@ namespace OutlookPlugin
             "derariii@gmail.com",
 
             // Comments (try to keep it under 50 characters)
-            "Short comments will go here."
+            "Collects information from MS Outlook."
         );
 
         #region GetAuthor() and GetVersion() exports -- no need to modify

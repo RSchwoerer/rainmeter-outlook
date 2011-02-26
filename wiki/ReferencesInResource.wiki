@@ -1,0 +1,135 @@
+#summary Shows examples for using references in the Resource parameter
+
+= Resources =
+
+To minimize communication overhead, only one measure should query MAPI data from Outlook. All other measures can access this data to retrieve specific information. Here is an example how this can be done.
+
+{{{
+[Rainmeter]
+Author=Arian Treffer
+Update=1000
+DynamicWindowSize=1
+
+[Metadata]
+Name=Resource Reference Test
+
+: === Measures ===
+
+: Fetches the data from Outlook,
+: returns total number of folders
+[MeasureMAPIFolders]
+Measure=Plugin
+Plugin=Plugins\OutlookPlugin.dll
+Resource=MAPIFolder
+Result=%Count
+
+: Returns total number of unread mails
+[MeasureTotalUnread]
+Measure=Plugin
+Plugin=Plugins\OutlookPlugin.dll
+Resource=[MeasureMAPIFolders]
+Result=%TotalUnreadItemCount
+
+: Filters folders that contain unread mails,
+: returns number of folders
+[MeasureUnreadFolders]
+Measure=Plugin
+Plugin=Plugins\OutlookPlugin.dll
+Resource=[MeasureMAPIFolders]
+Filter=%HasUnreadItems
+Result=%Count
+
+: Selects the first folder with unread mails
+[MeasureFolder0]
+Measure=Plugin
+Plugin=Plugins\OutlookPlugin.dll
+Resource=[MeasureUnreadFolders]
+Index=0
+
+: Returns name of first folder
+[MeasureFolder0Name]
+Measure=Plugin
+Plugin=Plugins\OutlookPlugin.dll
+Resource=[MeasureFolder0]
+Result=%Name
+
+: Returns unread mails of first folder
+[MeasureFolder0UnreadItemCount]
+Measure=Plugin
+Plugin=Plugins\OutlookPlugin.dll
+Resource=[MeasureFolder0]
+Result=%UnreadItemCount
+
+: Selects the second folder with unread mails,
+: returns name
+[MeasureFolder1]
+Measure=Plugin
+Plugin=Plugins\OutlookPlugin.dll
+Resource=[MeasureUnreadFolders]
+Index=1
+Result=%Name
+
+: Returns unread mails of second folder
+[MeasureFolder1UnreadItemCount]
+Measure=Plugin
+Plugin=Plugins\OutlookPlugin.dll
+Resource=[MeasureFolder1]
+Result=%UnreadItemCount
+
+: === Meters ===
+
+[Unread]
+Meter=String
+MeasureName=MeasureTotalUnread
+Text=%1 new mails
+StringStyle=Bold
+AntiAlias=1
+X=0
+Y=0
+
+[FoldersWithUnread]
+Meter=String
+MeasureName=MeasureUnreadFolders
+Text=in %1
+StringStyle=Bold
+AntiAlias=1
+X=0
+Y=R
+
+[FoldersTotal]
+Meter=String
+MeasureName=MeasureMAPIFolders
+Text= of %1 folders
+StringStyle=Bold
+AntiAlias=1
+X=R
+Y=r
+
+[Folder0Name]
+Meter=String
+MeasureName=MeasureFolder0Name
+AntiAlias=1
+X=0
+Y=R
+
+[Folder0Unread]
+Meter=String
+MeasureName=MeasureFolder0UnreadItemCount
+AntiAlias=1
+X=R
+Y=r
+
+[Folder1Name]
+Meter=String
+MeasureName=MeasureFolder1
+AntiAlias=1
+X=0
+Y=R
+
+[Folder1Unread]
+Meter=String
+MeasureName=MeasureFolder1UnreadItemCount
+AntiAlias=1
+X=R
+Y=r
+}}}

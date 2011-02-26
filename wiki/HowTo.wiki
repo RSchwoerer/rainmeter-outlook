@@ -1,0 +1,43 @@
+#summary How to use the Outlook plugin
+
+= Basic Structure =
+
+Create a measure that references the plugin
+{{{
+[MeasureOutlook]
+Measure=Plugin
+Plugin=Plugins\OutlookPlugin.dll
+}}}
+
+In a measure, you can specify the following options:
+  * *Resource* (required) Define the resource you want to access (i.e. _MAPIFolder_ to get the inbox) Other available resources are listed below. You can also reference other measures [ReferencesInResource (example)].
+  * *Result* Specify the value you want in the form _%!PropertyName_. If the result should be a string, you can write something more complex, like _%!UnreadItemCount new mails in %Name_
+  * *Default* If you access a resource that does not exist (i.e. when the index is out of bounds), this value will be returned instead.
+  * *!OnError* If something goes wrong, this value will be used. You can use _%Message_ to get details.
+
+= Resources =
+This section lists available resources and their properties.
+== Status ==
+Use this to check if the plugin is connected.
+  * *%Code* A value < 0 on errors, and > 0 if the plugin is connected.
+  * *%!IsOk* when the plugin is connect 1, otherwise 0.
+  * *%Message* A status message. You can use the option *!OkMessage* to override the value if the status is Ok.
+
+== MAPIFolder ==
+Returns a flat list of folders in your inbox. 
+
+=== Folder list ===
+You can modify the resource with the following options:
+  # *Filter* selects a subset. Currently, _%!HasUnreadItems_ is the only supported value.
+  # *Index* selects a single folder of the list. _Index=0_ selects the root folder.
+
+  * *%Count* number of folders
+  * *%!TotalUnreadItemCount* total number of unread items
+
+=== Folder ===
+  * *%!ItemCount* number of items
+  * *%!HasUnreadItems* when the folder contains unread items 1, otherwise 0
+  * *%Name*
+  * *%Path*
+  * *%!TotalUnreadItemCount* number of unread items in this folder and its subfolders
+  * *%!UnreadItemCount* number of unread items in this folder

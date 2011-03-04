@@ -14,5 +14,7 @@
       * can display at least 10 folders
       * maybe create skins for the most common themes
   # First official release
+    * Create an .rmskin
+    * Figure out some technical details like app version
   # Have a look at tasks, calendar, and appointments
      

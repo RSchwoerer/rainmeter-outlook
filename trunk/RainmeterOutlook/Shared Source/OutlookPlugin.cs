@@ -5,6 +5,7 @@ using Outlook = Microsoft.Office.Interop.Outlook;
 
 namespace OutlookPlugin
 {
+
     class OutlookPlugin
     {
 
@@ -146,7 +147,7 @@ namespace OutlookPlugin
             {
                 return new StatusResult(status, statusMsg);
             }
-            else if (resourceKey == "MAPIFolder")
+            else if (resourceKey == "MAPIFolder" || resourceKey == "EmailFolder")
             {
                 return GetMAPIFolders(Instance);
             }
@@ -167,6 +168,7 @@ namespace OutlookPlugin
                 return false;
             }
             result = Measure(other);
+            Instance.SetTempValue("Base", other);
             return true;
         }
 
@@ -202,9 +204,19 @@ namespace OutlookPlugin
             return "Result";
         }
 
+        protected string virtual_INI_value(Rainmeter.Settings.InstanceSettings Instance, String key)
+        {
+            string r = Instance.INI_Value(key);
+            if (r.Length > 0) return r;
+            if (Instance.INI_Value("Override").Trim() == "1") return "";
+            Rainmeter.Settings.InstanceSettings other = (Rainmeter.Settings.InstanceSettings)Instance.GetTempValue("Base", null);
+            if (other == null) return "";
+            return virtual_INI_value(other, key);
+        }
+
         public double AsDouble(Rainmeter.Settings.InstanceSettings Instance)
         {
-            string result = Instance.INI_Value(GetResultKey()).Trim();
+            string result = virtual_INI_value(Instance, GetResultKey()).Trim();
             if (result.StartsWith("%"))
             {
                 double? d = GetDouble(result, Instance);
@@ -226,7 +238,7 @@ namespace OutlookPlugin
 
         public string AsString(Rainmeter.Settings.InstanceSettings Instance)
         {
-            string result = Instance.INI_Value(GetResultKey());
+            string result = virtual_INI_value(Instance, GetResultKey());
             Regex regex = new Regex("%[a-zA-Z]+");
             return regex.Replace(result, delegate(Match match)
             {
@@ -338,7 +350,7 @@ namespace OutlookPlugin
             {
                 if (IsOk())
                 {
-                    string okMsg = Instance.INI_Value("OkMessage");
+                    string okMsg = virtual_INI_value(Instance, "OkMessage");
                     if (okMsg.Length > 0) return okMsg;
                 }
                 return message;
@@ -354,7 +366,7 @@ namespace OutlookPlugin
 
         public MAPIFolderListResult(Outlook.MAPIFolder folder)
         {
-            root = new MAPIFolderResult(folder);
+            root = new MAPIFolderResult(folder, 0);
             this.folders = new List<MAPIFolderResult>();
             fillList(root);
         }
@@ -420,6 +432,9 @@ namespace OutlookPlugin
         private List<MAPIFolderResult> folders;
         public List<MAPIFolderResult> Folders { get { return folders; } }
 
+        private int depth = -1;
+        public int Depth { get { return depth; } }
+
         private string name = null;
         public string Name { get { if (name == null) name = folder.Name; return name; } }
 
@@ -435,14 +450,15 @@ namespace OutlookPlugin
         private int itemCount = -1;
         public int ItemCount { get { if (itemCount == -1) itemCount = folder.Items.Count; return itemCount; } }
 
-        public MAPIFolderResult(Outlook.MAPIFolder folder)
+        public MAPIFolderResult(Outlook.MAPIFolder folder, int depth)
         {
             this.folder = folder;
+            this.depth = depth;
 
             folders = new List<MAPIFolderResult>();
             foreach (Outlook.MAPIFolder f in folder.Folders)
             {
-                folders.Add(new MAPIFolderResult(f));
+                folders.Add(new MAPIFolderResult(f, depth+1));
             }
             folders.Sort(delegate(MAPIFolderResult a, MAPIFolderResult b)
             {
@@ -484,8 +500,23 @@ namespace OutlookPlugin
             switch (key)
             {
                 case "%Name": return Name;
+                case "%Path": return Path;
+                case "%Indent": return Indent(Instance);
                 default: return base.GetString(key, Instance);
             }
+        }
+
+        private string Indent(Rainmeter.Settings.InstanceSettings Instance)
+        {
+            string indent = virtual_INI_value(Instance, "Indent");
+            if (indent == "") indent = "  ";
+            if (indent.EndsWith(".")) indent = indent.Substring(0, indent.Length - 1);
+
+            string result = "";
+            for (int i = 0; i < depth; i++)
+                result += indent;
+
+            return result;
         }
     }
 

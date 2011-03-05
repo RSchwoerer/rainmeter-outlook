@@ -43,6 +43,8 @@ namespace OutlookPlugin
             outlook = GetOutlook();
         }
 
+        #region Rainmeter Interface
+
         public UInt32 Update(Rainmeter.Settings.InstanceSettings Instance)
         {
             // not used
@@ -68,13 +70,16 @@ namespace OutlookPlugin
             }
         }
 
-
         // 'ExecuteBang' is a way of Rainmeter telling your plugin to do something *right now*.
         // What it wants to do can be defined by the 'Command' parameter.
         public void ExecuteBang(Rainmeter.Settings.InstanceSettings Instance, string Command)
         {
             return;
         }
+
+        #endregion
+
+        #region Measuree
 
         private MeasureResult Measure(Rainmeter.Settings.InstanceSettings Instance)
         {
@@ -120,7 +125,11 @@ namespace OutlookPlugin
             try
             {
                 result = GetResource(Instance);
+
+                result = result.Select(Instance);
+                
                 result = result.Filter(Instance);
+
                 string strIndex = Instance.INI_Value("Index");
                 if (strIndex.Length > 0)
                 {
@@ -188,6 +197,8 @@ namespace OutlookPlugin
             Instance.SetTempValue("Base", other);
             return true;
         }
+
+        #endregion
 
         private MeasureResult GetMAPIFolders(Rainmeter.Settings.InstanceSettings Instance)
         {
@@ -279,6 +290,11 @@ namespace OutlookPlugin
             return "";
         }
 
+        public virtual MeasureResult Select(Rainmeter.Settings.InstanceSettings Instance)
+        {
+            return this;
+        }
+
         public virtual MeasureResult Filter(Rainmeter.Settings.InstanceSettings Instance)
         {
             return this;
@@ -289,6 +305,8 @@ namespace OutlookPlugin
             return NullResult.Instance;
         }
     }
+
+    #region System Results
 
     class NullResult : MeasureResult
     {
@@ -385,16 +403,26 @@ namespace OutlookPlugin
         }
     }
 
+    #endregion
+
     class MAPIFolderListResult : MeasureResult
     {
         private MAPIFolderResult root;
-        private List<MAPIFolderResult> folders;
 
-        public MAPIFolderListResult(Outlook.MAPIFolder folder)
+        protected List<MAPIFolderResult> folders;
+        public List<MAPIFolderResult> Folders { get { return folders; } }
+
+        public MAPIFolderListResult(Outlook.MAPIFolder folder, bool includeRoot = true)
         {
             root = new MAPIFolderResult(folder, 0);
             this.folders = new List<MAPIFolderResult>();
+            if (includeRoot) folders.Add(root);
             fillList(root);
+        }
+
+        protected MAPIFolderListResult()
+        {
+            this.folders = new List<MAPIFolderResult>(); ;
         }
 
         private MAPIFolderListResult(List<MAPIFolderResult> folders)
@@ -404,9 +432,9 @@ namespace OutlookPlugin
 
         private void fillList(MAPIFolderResult folder)
         {
-            folders.Add(folder);
             foreach (MAPIFolderResult f in folder.Folders)
             {
+                folders.Add(f);
                 fillList(f);
             }
         }
@@ -424,6 +452,17 @@ namespace OutlookPlugin
         protected override string GetString(string key, Rainmeter.Settings.InstanceSettings Instance)
         {
             return base.GetString(key, Instance);
+        }
+
+        public override MeasureResult Select(Rainmeter.Settings.InstanceSettings Instance)
+        {
+            string select = Instance.INI_Value("Select");
+            if (select == "Root")
+            {
+                if (root == null) return NullResult.Instance;
+                return root;
+            }
+            return this;
         }
 
         public override MeasureResult Filter(Rainmeter.Settings.InstanceSettings Instance)
@@ -475,12 +514,9 @@ namespace OutlookPlugin
         }
     }
 
-    class MAPIFolderResult : MeasureResult
+    class MAPIFolderResult : MAPIFolderListResult
     {
         private Outlook.MAPIFolder folder;
-        
-        private List<MAPIFolderResult> folders;
-        public List<MAPIFolderResult> Folders { get { return folders; } }
 
         private int depth = -1;
         public int Depth { get { return depth; } }
@@ -500,12 +536,11 @@ namespace OutlookPlugin
         private int itemCount = -1;
         public int ItemCount { get { if (itemCount == -1) itemCount = folder.Items.Count; return itemCount; } }
 
-        public MAPIFolderResult(Outlook.MAPIFolder folder, int depth)
+        public MAPIFolderResult(Outlook.MAPIFolder folder, int depth) : base()
         {
             this.folder = folder;
             this.depth = depth;
 
-            folders = new List<MAPIFolderResult>();
             foreach (Outlook.MAPIFolder f in folder.Folders)
             {
                 folders.Add(new MAPIFolderResult(f, depth+1));
@@ -574,6 +609,17 @@ namespace OutlookPlugin
 
             return result;
         }
+
+        public override MeasureResult Select(Rainmeter.Settings.InstanceSettings Instance)
+        {
+            string select = Instance.INI_Value("Select");
+            if (select == "Subfolders")
+            {
+                return new MAPIFolderListResult(folder, false);
+            }
+            return base.Select(Instance);
+        }
+
     }
 
 }

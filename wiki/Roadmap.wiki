@@ -5,10 +5,7 @@
 
   # Planned features for MAPIFolder
     * More properties
-      * indent
       * navigating subfolders
-    * Allow selecting folders by name
-      * also exclude
     * Create skins that 
       * use default font and colors
       * can display at least 10 folders
@@ -20,4 +17,12 @@
     * Create an .rmskin
     * Figure out some technical details like app version
   # Have a look at tasks, calendar, and appointments
-     
+
+= Completed =
+
+  # Planned features for MAPIFolder
+    * More properties
+      * indent
+    * Allow selecting folders by name
+      * also exclude
+    * Clear cache on refresh

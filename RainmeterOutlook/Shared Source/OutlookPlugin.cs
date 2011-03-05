@@ -36,7 +36,7 @@ namespace OutlookPlugin
 
         private Outlook.Application outlook;
 
-        private static Dictionary<String, MeasureResult> cache = new Dictionary<string,MeasureResult>();
+        //private static Dictionary<String, MeasureResult> cache = new Dictionary<string,MeasureResult>();
 
         public OutlookPlugin() 
         {
@@ -78,28 +78,38 @@ namespace OutlookPlugin
 
         private MeasureResult Measure(Rainmeter.Settings.InstanceSettings Instance)
         {
-            MeasureResult cached = GetCached(Instance.Section, Instance);
-            if (cached != null) return cached;
-            return Evaluate(Instance);
+            lock (Instance)
+            {
+                MeasureResult cached = GetCached(Instance);
+                if (cached != null)
+                {
+                    int age = (int) Instance.GetTempValue("Age", 0);
+                    Instance.SetTempValue("Age", age+1);
+                    return cached;
+                }
+                return Evaluate(Instance);
+            }
         }
 
-        private MeasureResult GetCached(string section, Rainmeter.Settings.InstanceSettings Instance)
+        private MeasureResult GetCached(Rainmeter.Settings.InstanceSettings Instance)
         {
             MeasureResult cached;
-            if (!section.StartsWith("[")) section = "[" + section + "]";
-            if (!cache.TryGetValue(Instance.INI_File + section, out cached))
+            //if (!section.StartsWith("[")) section = "[" + section + "]";
+            cached = (MeasureResult) Instance.GetTempValue("Cached", null);
+            if (cached == null || !cached.checkAge(Instance))
+            //if (!cache.TryGetValue(Instance.INI_File + section, out cached))
             {
                 return null;
             }
 
-            string strUpdateRate = Instance.INI_Value("UpdateRate").Trim();
-            int updateRate;
-            if (!int.TryParse(strUpdateRate, out updateRate))
-            {
-                updateRate = 300;
-            }
-
-            if (cached.Age > updateRate) return null;
+            //string strUpdateRate = Instance.INI_Value("UpdateRate");
+            //int updateRate;
+            //if (!int.TryParse(strUpdateRate, out updateRate))
+            //{
+            //    updateRate = 300;
+            //}
+            //
+            //if (cached.Age > updateRate) return null;
 
             return cached;
         }
@@ -111,7 +121,7 @@ namespace OutlookPlugin
             {
                 result = GetResource(Instance);
                 result = result.Filter(Instance);
-                string strIndex = Instance.INI_Value("Index").Trim();
+                string strIndex = Instance.INI_Value("Index");
                 if (strIndex.Length > 0)
                 {
                     int index = int.Parse(strIndex);
@@ -124,22 +134,23 @@ namespace OutlookPlugin
             }
             finally
             {
-                cache[Instance.INI_File + "[" + Instance.Section + "]"] = result;
+                Instance.SetTempValue("Age", 0);
+                Instance.SetTempValue("Cached", result);
+                //cache[Instance.INI_File + "[" + Instance.Section + "]"] = result;
             }
             return result;
         }
 
         private MeasureResult GetResource(Rainmeter.Settings.InstanceSettings Instance)
         {
-            string resourceKey = Instance.INI_Value("Resource").Trim();
+            string resourceKey = Instance.INI_Value("Resource");
             if (resourceKey.Length == 0)
             {
                 return new ErrorResult(-1, "Resource required");
             }
             else if (resourceKey.StartsWith("["))
             {
-                MeasureResult r = GetCached(resourceKey, Instance);
-                if (r != null) return r;
+                MeasureResult r;
                 if (TryUpdateOtherMeasure(resourceKey, Instance, out r)) return r;
                 return new ErrorResult(-1, "Unknown measure " + resourceKey);
             }
@@ -167,6 +178,12 @@ namespace OutlookPlugin
                 result = null;
                 return false;
             }
+
+            // a measure that is not directly used by a meter does not age,
+            // we have to work around this
+            int age = Math.Max((int)other.GetTempValue("Age", 0), (int)Instance.GetTempValue("Age", 0));
+            other.SetTempValue("Age", age);
+
             result = Measure(other);
             Instance.SetTempValue("Base", other);
             return true;
@@ -174,7 +191,7 @@ namespace OutlookPlugin
 
         private MeasureResult GetMAPIFolders(Rainmeter.Settings.InstanceSettings Instance)
         {
-            string root = Instance.INI_Value("Root").Trim();
+            string root = Instance.INI_Value("Root");
             if (root.Length == 0) root = "Inbox";
             if (!root.StartsWith("\\"))
             {
@@ -194,9 +211,18 @@ namespace OutlookPlugin
 
         private DateTime created = DateTime.Now;
 
-        public double Age
+        public bool checkAge(Rainmeter.Settings.InstanceSettings Instance)
         {
-            get { return (DateTime.Now - created).TotalSeconds; }
+            string strUpdateRate = virtual_INI_value(Instance, "UpdateRate");
+            int updateRate;
+            if (!int.TryParse(strUpdateRate, out updateRate))
+            {
+                updateRate = 300;
+            }
+
+            int age = (int)Instance.GetTempValue("Age", (int)0);
+
+            return age < updateRate;
         }
 
         protected virtual string GetResultKey()
@@ -208,7 +234,7 @@ namespace OutlookPlugin
         {
             string r = Instance.INI_Value(key);
             if (r.Length > 0) return r;
-            if (Instance.INI_Value("Override").Trim() == "1") return "";
+            if (Instance.INI_Value("Override") == "1") return "";
             Rainmeter.Settings.InstanceSettings other = (Rainmeter.Settings.InstanceSettings)Instance.GetTempValue("Base", null);
             if (other == null) return "";
             return virtual_INI_value(other, key);
@@ -216,7 +242,7 @@ namespace OutlookPlugin
 
         public double AsDouble(Rainmeter.Settings.InstanceSettings Instance)
         {
-            string result = virtual_INI_value(Instance, GetResultKey()).Trim();
+            string result = virtual_INI_value(Instance, GetResultKey());
             if (result.StartsWith("%"))
             {
                 double? d = GetDouble(result, Instance);
@@ -403,7 +429,8 @@ namespace OutlookPlugin
         public override MeasureResult Filter(Rainmeter.Settings.InstanceSettings Instance)
         {
             List<MAPIFolderResult> list = folders;
-            string filter = Instance.INI_Value("Filter").Trim();
+            
+            string filter = Instance.INI_Value("Filter");
             if (filter.Length > 0)
             {
                 list = list.FindAll(delegate(MAPIFolderResult f)
@@ -411,6 +438,29 @@ namespace OutlookPlugin
                     return f.testFilter(filter, Instance);
                 });
             }
+
+            string include = Instance.INI_Value("Include");
+            if (include.Length > 0)
+            {
+                include = include.Replace(".", "\\.").Replace("*", ".*");
+                Regex regex = new Regex("^(" + include + ")$");
+                list = list.FindAll(delegate(MAPIFolderResult f)
+                {
+                    return regex.IsMatch(f.Name);
+                });
+            }
+
+            string exclude = Instance.INI_Value("Exclude");
+            if (exclude.Length > 0)
+            {
+                exclude = exclude.Replace(".","\\.").Replace("*", ".*");
+                Regex regex = new Regex("^(" + exclude + ")$");
+                list = list.FindAll(delegate(MAPIFolderResult f)
+                {
+                    return ! regex.IsMatch(f.Name);
+                });
+            }
+
             if (list == folders) return this;
             return new MAPIFolderListResult(list);
         }
@@ -510,7 +560,13 @@ namespace OutlookPlugin
         {
             string indent = virtual_INI_value(Instance, "Indent");
             if (indent == "") indent = "  ";
-            if (indent.EndsWith(".")) indent = indent.Substring(0, indent.Length - 1);
+
+            if (indent.Length > 1)
+            {
+                int start = indent.StartsWith("\"") ? 1 : 0;
+                int end = indent.EndsWith("\"") ? 1 : 0;
+                if (start + end > 0) indent = indent.Substring(start, indent.Length - start - end);
+            }
 
             string result = "";
             for (int i = 0; i < depth; i++)

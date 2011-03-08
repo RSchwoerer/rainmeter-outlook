@@ -1,7 +1,6 @@
-
 = !WebPost=
 
-!WebPost is a command line tool that allows you to send HTTP requests from rainmeter. You can download it [http://code.google.com/p/rainmeter-outlook/downloads/detail?name=WebPost.exe here].
+!WebPost is a command line tool that allows you to send HTTP requests from rainmeter. You can download it [http://code.google.com/p/rainmeter-outlook/downloads/detail?name=WebPost.exe here] ([http://code.google.com/p/rainmeter-outlook/source/browse/trunk/WebPost/WebPost/mWebPost.vb source]).
 
 
 

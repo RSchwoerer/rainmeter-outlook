@@ -1,0 +1,34 @@
+=== Foobar Native Skins ===
+          by Arian Treffer
+
+Foobar Native Skins allow you to access and control 
+Foobar2000 directly via HTTP.
+
+This way you can also control a Foobar instance running
+on another computer.
+
+--- Setup WebPost ---
+
+Download WebPost.exe from
+ http://code.google.com/p/rainmeter-outlook/downloads/detail?name=WebPost.exe
+and save it in the Rainmeter\ root folder.
+
+--- Setup foo_httpcontrol ---
+
+Install foo-httpcontrol (http://code.google.com/p/foo-httpcontrol/)
+
+Copy foo_httpcontrol_data to %APPDATA%\foobar2000\ if foobar2000 
+is installed in standard mode, or to path_too_foobar2000_folder\
+if foobar2000 is installed in portable mode.
+
+http://127.0.0.1:8888/rainmeter/ in your browser.
+(Note that IP address and port is component configuration specific 
+and may be different in your case).
+
+If you see some data, the setup was successful.
+
+--- Setup Skins ---
+
+Copy the skins into your rainmeter skins folder.
+Use them as a starting point to create your own.
+

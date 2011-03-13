@@ -3,16 +3,6 @@
 
 = Roadmap =
 
-  # Planned features for MAPIFolder
-    * More properties
-      * navigating subfolders
-    * Create skins that 
-      * use default font and colors
-      * can display at least 10 folders
-      * maybe create skins for the most common themes
-    * Add some Bangs
-      * clear cache
-      * open Outlook
   # First official release
     * Create an .rmskin
     * Figure out some technical details like app version
@@ -22,7 +12,13 @@
 
   # Planned features for MAPIFolder
     * More properties
+      * navigating subfolders
       * indent
+    * Create skins
+      * example with all features for enigma
     * Allow selecting folders by name
       * also exclude
     * Clear cache on refresh
+    * Add some Bangs
+      * clear cache
+      * open Outlook

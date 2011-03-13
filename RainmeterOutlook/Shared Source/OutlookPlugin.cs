@@ -36,6 +36,8 @@ namespace OutlookPlugin
 
         private Outlook.Application outlook;
 
+        public static int resetId = 0;
+
         //private static Dictionary<String, MeasureResult> cache = new Dictionary<string,MeasureResult>();
 
         public OutlookPlugin() 
@@ -74,12 +76,29 @@ namespace OutlookPlugin
         // What it wants to do can be defined by the 'Command' parameter.
         public void ExecuteBang(Rainmeter.Settings.InstanceSettings Instance, string Command)
         {
+            //string[] args = Command.Split(' ');
+            //Command = args[0];
+            try
+            {
+                switch (Command)
+                {
+                    case "ClearCache":
+                        resetId++;
+                        return;
+                }
+                MeasureResult mr = Measure(Instance);
+                mr.Bang(GetOutlook(), Command);
+            }
+            catch (Exception e)
+            {
+                Rainmeter.Log(Rainmeter.LogLevel.Error, e.ToString());
+            }
             return;
         }
 
         #endregion
 
-        #region Measuree
+        #region Measure
 
         private MeasureResult Measure(Rainmeter.Settings.InstanceSettings Instance)
         {
@@ -145,6 +164,7 @@ namespace OutlookPlugin
             {
                 Instance.SetTempValue("Age", 0);
                 Instance.SetTempValue("Cached", result);
+                Instance.SetTempValue("resetId", OutlookPlugin.resetId);
                 //cache[Instance.INI_File + "[" + Instance.Section + "]"] = result;
             }
             return result;
@@ -224,6 +244,9 @@ namespace OutlookPlugin
 
         public bool checkAge(Rainmeter.Settings.InstanceSettings Instance)
         {
+            int myResetId = (int) Instance.GetTempValue("resetId", OutlookPlugin.resetId);
+            if (myResetId != OutlookPlugin.resetId) return false;
+
             string strUpdateRate = virtual_INI_value(Instance, "UpdateRate");
             int updateRate;
             if (!int.TryParse(strUpdateRate, out updateRate))
@@ -303,6 +326,11 @@ namespace OutlookPlugin
         public virtual MeasureResult Index(int i, Rainmeter.Settings.InstanceSettings Instance)
         {
             return NullResult.Instance;
+        }
+
+        public virtual void Bang(Outlook.Application App, string Command)
+        {
+            throw new Exception("Unknown command " + Command);
         }
     }
 
@@ -512,6 +540,11 @@ namespace OutlookPlugin
             }
             return NullResult.Instance;
         }
+
+        public override void Bang(Outlook.Application App, string Command)
+        {
+            folders[0].Bang(App, Command);
+        }
     }
 
     class MAPIFolderResult : MAPIFolderListResult
@@ -620,6 +653,15 @@ namespace OutlookPlugin
             return base.Select(Instance);
         }
 
+        public override void Bang(Outlook.Application App, string Command)
+        {
+            switch (Command)
+            {
+                case "Display":
+                    folder.Display();
+                    return;
+            }
+        }
     }
 
 }

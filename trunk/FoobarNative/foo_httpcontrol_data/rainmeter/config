@@ -1,0 +1,10 @@
+; default template configuration file
+; 
+[foo_httpcontrol]
+url=/
+helper1=$if(%track artist%,%track artist%,%album artist%)##%album%##%title%
+helper2=$directory_path(%path%)\folder.jpg|$directory_path(%path%)\*.jpg
+helper3=3
+albumart=$directory_path(%path%)\folder.jpg|$directory_path(%path%)\*.jpg
+albumart_not_found=
+albumart_not_available=

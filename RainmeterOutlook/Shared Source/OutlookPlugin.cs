@@ -68,6 +68,7 @@ namespace OutlookPlugin
             }
             catch (Exception e)
             {
+                Rainmeter.Log(Rainmeter.LogLevel.Error, e.ToString());
                 return "Sorry, " + e.ToString();
             }
         }
@@ -472,7 +473,13 @@ namespace OutlookPlugin
             switch (key)
             {
                 case "%Count": return folders.Count;
-                case "%TotalUnreadItemCount": return root.TotalUnreadItemCount;
+                case "%TotalUnreadItemCount": 
+                    if (root != null)
+                        return root.TotalUnreadItemCount;
+                    int total = 0;
+                    foreach (MAPIFolderResult f in folders)
+                        total += f.UnreadItemCount;
+                    return total;
                 default: return base.GetDouble(key, Instance);
             }
         }

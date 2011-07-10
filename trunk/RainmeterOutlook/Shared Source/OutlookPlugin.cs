@@ -119,23 +119,11 @@ namespace OutlookPlugin
         private MeasureResult GetCached(Rainmeter.Settings.InstanceSettings Instance)
         {
             MeasureResult cached;
-            //if (!section.StartsWith("[")) section = "[" + section + "]";
             cached = (MeasureResult) Instance.GetTempValue("Cached", null);
             if (cached == null || !cached.checkAge(Instance))
-            //if (!cache.TryGetValue(Instance.INI_File + section, out cached))
             {
                 return null;
             }
-
-            //string strUpdateRate = Instance.INI_Value("UpdateRate");
-            //int updateRate;
-            //if (!int.TryParse(strUpdateRate, out updateRate))
-            //{
-            //    updateRate = 300;
-            //}
-            //
-            //if (cached.Age > updateRate) return null;
-
             return cached;
         }
 
@@ -166,7 +154,6 @@ namespace OutlookPlugin
                 Instance.SetTempValue("Age", 0);
                 Instance.SetTempValue("Cached", result);
                 Instance.SetTempValue("resetId", OutlookPlugin.resetId);
-                //cache[Instance.INI_File + "[" + Instance.Section + "]"] = result;
             }
             return result;
         }

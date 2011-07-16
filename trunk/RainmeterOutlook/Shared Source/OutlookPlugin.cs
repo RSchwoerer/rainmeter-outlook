@@ -68,7 +68,7 @@ namespace OutlookPlugin
             }
             catch (Exception e)
             {
-                Rainmeter.Log(Rainmeter.LogLevel.Error, e.ToString());
+                Rainmeter.Log(Rainmeter.LogLevel.Error, "Sorry, " +  e.ToString() + " in " + e.StackTrace[0].ToString());
                 return "Sorry, " + e.ToString();
             }
         }
@@ -210,18 +210,57 @@ namespace OutlookPlugin
 
         private MeasureResult GetMAPIFolders(Rainmeter.Settings.InstanceSettings Instance)
         {
-            string root = Instance.INI_Value("Root");
-            if (root.Length == 0) root = "Inbox";
-            if (!root.StartsWith("\\"))
+            MAPIFolderListResult result = new MAPIFolderListResult();
+            string rootList = Instance.INI_Value("Root");
+            if (rootList.Length == 0) rootList = "Inbox";
+            Outlook.NameSpace nsMapi = outlook.GetNamespace("MAPI");
+            foreach (string root in rootList.Split('|'))
             {
-                Outlook.NameSpace nsMapi = outlook.GetNamespace("MAPI");
-                if (root == "Inbox")
+                if (!root.StartsWith("\\"))
                 {
-                    Outlook.MAPIFolder inbox = nsMapi.GetDefaultFolder(Outlook.OlDefaultFolders.olFolderInbox);
-                    return new MAPIFolderListResult(inbox);
+                    switch (root)
+                    {
+                        case "Inbox":
+                            Outlook.MAPIFolder inbox = nsMapi.GetDefaultFolder(Outlook.OlDefaultFolders.olFolderInbox);
+                            result.AddRoot(inbox);
+                            break;
+                        default:
+                            return new ErrorResult(-1, root + " not implemented");
+                    }
+                }
+                else
+                {
+                    Outlook.MAPIFolder folder = FindRoot(nsMapi.Folders, root);
+                    if (folder == null)
+                    {
+                        return new ErrorResult(-1, root + " not found");
+                    }
+                    result.AddRoot(folder);
+                }            
+            }
+            return result;
+        }
+
+        private Outlook.MAPIFolder FindRoot(Outlook.Folders folders, string root)
+        {
+            string[] path = root.Substring(2).Split('\\');
+            return FindRoot(folders, path, 0);
+        }
+
+        private Outlook.MAPIFolder FindRoot(Outlook.Folders folders, string[] path, int n)
+        {
+            foreach (Outlook.Folder f in folders)
+            {
+                if (f.Name == path[n])
+                {
+                    if (n + 1 == path.Length)
+                    {
+                        return f;
+                    }
+                    return FindRoot(f.Folders, path, n + 1);
                 }
             }
-            return new ErrorResult(-1, root + " not implemented");
+            return null;
         }
     }
 
@@ -423,22 +462,28 @@ namespace OutlookPlugin
 
     class MAPIFolderListResult : MeasureResult
     {
-        private MAPIFolderResult root;
+        private List<MAPIFolderResult> roots;
 
         protected List<MAPIFolderResult> folders;
         public List<MAPIFolderResult> Folders { get { return folders; } }
 
-        public MAPIFolderListResult(Outlook.MAPIFolder folder, bool includeRoot = true)
+        public MAPIFolderListResult()
         {
-            root = new MAPIFolderResult(folder, 0);
+            roots = new List<MAPIFolderResult>();
             this.folders = new List<MAPIFolderResult>();
+        }
+
+        public void AddRoot(Outlook.MAPIFolder folder, bool includeRoot = true)
+        {
+            MAPIFolderResult root = new MAPIFolderResult(folder, 0);
+            roots.Add(root);
             if (includeRoot) folders.Add(root);
             fillList(root);
         }
 
-        protected MAPIFolderListResult()
+        public void Add(MAPIFolderResult folder)
         {
-            this.folders = new List<MAPIFolderResult>(); ;
+            this.folders.Add(folder);
         }
 
         private MAPIFolderListResult(List<MAPIFolderResult> folders)
@@ -460,13 +505,21 @@ namespace OutlookPlugin
             switch (key)
             {
                 case "%Count": return folders.Count;
-                case "%TotalUnreadItemCount": 
-                    if (root != null)
-                        return root.TotalUnreadItemCount;
-                    int total = 0;
-                    foreach (MAPIFolderResult f in folders)
-                        total += f.UnreadItemCount;
-                    return total;
+                case "%TotalUnreadItemCount":
+                    if (roots.Count == 0)
+                    {
+                        int total = 0;
+                        foreach (MAPIFolderResult root in roots)
+                            total += root.TotalUnreadItemCount;
+                        return total;
+                    }
+                    else
+                    {
+                        int total = 0;
+                        foreach (MAPIFolderResult f in folders)
+                            total += f.UnreadItemCount;
+                        return total;
+                    }
                 default: return base.GetDouble(key, Instance);
             }
         }
@@ -481,8 +534,12 @@ namespace OutlookPlugin
             string select = Instance.INI_Value("Select");
             if (select == "Root")
             {
-                if (root == null) return NullResult.Instance;
-                return root;
+                MAPIFolderListResult result = new MAPIFolderListResult();
+                foreach (MAPIFolderResult root in roots)
+                {
+                    result.Add(root);
+                }
+                return result;
             }
             return this;
         }
@@ -642,7 +699,9 @@ namespace OutlookPlugin
             string select = Instance.INI_Value("Select");
             if (select == "Subfolders")
             {
-                return new MAPIFolderListResult(folder, false);
+                MAPIFolderListResult result = new MAPIFolderListResult();
+                result.AddRoot(folder, false);
+                return result;
             }
             return base.Select(Instance);
         }

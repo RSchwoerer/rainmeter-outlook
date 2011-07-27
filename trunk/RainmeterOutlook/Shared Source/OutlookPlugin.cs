@@ -55,8 +55,16 @@ namespace OutlookPlugin
 
         public double Update2(Rainmeter.Settings.InstanceSettings Instance)
         {
-            MeasureResult result = Measure(Instance);
-            return result.AsDouble(Instance);
+            try
+            {
+                MeasureResult result = Measure(Instance);
+                return result.AsDouble(Instance);
+            }
+            catch (Exception e)
+            {
+                Rainmeter.Log(Rainmeter.LogLevel.Error, "Sorry, " + e.ToString());
+                return double.NaN;
+            }
         }
 
         public string GetString(Rainmeter.Settings.InstanceSettings Instance)
@@ -68,7 +76,7 @@ namespace OutlookPlugin
             }
             catch (Exception e)
             {
-                Rainmeter.Log(Rainmeter.LogLevel.Error, "Sorry, " +  e.ToString() + " in " + e.StackTrace[0].ToString());
+                Rainmeter.Log(Rainmeter.LogLevel.Error, "Sorry, " +  e.ToString());
                 return "Sorry, " + e.ToString();
             }
         }
@@ -469,8 +477,14 @@ namespace OutlookPlugin
 
         public MAPIFolderListResult()
         {
-            roots = new List<MAPIFolderResult>();
+            this.roots = new List<MAPIFolderResult>();
             this.folders = new List<MAPIFolderResult>();
+        }
+
+        private MAPIFolderListResult(List<MAPIFolderResult> folders)
+        {
+            this.roots = new List<MAPIFolderResult>();
+            this.folders = folders;
         }
 
         public void AddRoot(Outlook.MAPIFolder folder, bool includeRoot = true)
@@ -484,11 +498,6 @@ namespace OutlookPlugin
         public void Add(MAPIFolderResult folder)
         {
             this.folders.Add(folder);
-        }
-
-        private MAPIFolderListResult(List<MAPIFolderResult> folders)
-        {
-            this.folders = folders;
         }
 
         private void fillList(MAPIFolderResult folder)
@@ -506,18 +515,29 @@ namespace OutlookPlugin
             {
                 case "%Count": return folders.Count;
                 case "%TotalUnreadItemCount":
-                    if (roots.Count == 0)
+                    Rainmeter.Log(Rainmeter.LogLevel.Error, "0");
+                    if (roots.Count > 0)
                     {
                         int total = 0;
+                        Rainmeter.Log(Rainmeter.LogLevel.Error, "1");
                         foreach (MAPIFolderResult root in roots)
+                        {
+                            Rainmeter.Log(Rainmeter.LogLevel.Error, "2");
                             total += root.TotalUnreadItemCount;
+                        }
+                        Rainmeter.Log(Rainmeter.LogLevel.Error, "3 " + total);
                         return total;
                     }
                     else
                     {
                         int total = 0;
+                        Rainmeter.Log(Rainmeter.LogLevel.Error, "4");
                         foreach (MAPIFolderResult f in folders)
+                        {
+                            Rainmeter.Log(Rainmeter.LogLevel.Error, "5");
                             total += f.UnreadItemCount;
+                        }
+                        Rainmeter.Log(Rainmeter.LogLevel.Error, "6 " + total);
                         return total;
                     }
                 default: return base.GetDouble(key, Instance);

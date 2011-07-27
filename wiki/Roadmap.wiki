@@ -3,14 +3,15 @@
 
 = Roadmap =
 
-  # First official release
-    * Create an .rmskin
-    * Figure out some technical details like app version
   # Have a look at tasks, calendar, and appointments
 
 = Completed =
 
+  # First official release
+    * Create an .rmskin
+    * ~~Figure out some technical details like app version~~ _whatever_
   # Planned features for MAPIFolder
+    * Tested with POP3 and IMAP
     * More properties
       * navigating subfolders
       * indent

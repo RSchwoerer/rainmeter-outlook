@@ -515,29 +515,22 @@ namespace OutlookPlugin
             {
                 case "%Count": return folders.Count;
                 case "%TotalUnreadItemCount":
-                    Rainmeter.Log(Rainmeter.LogLevel.Error, "0");
                     if (roots.Count > 0)
                     {
                         int total = 0;
-                        Rainmeter.Log(Rainmeter.LogLevel.Error, "1");
                         foreach (MAPIFolderResult root in roots)
                         {
-                            Rainmeter.Log(Rainmeter.LogLevel.Error, "2");
                             total += root.TotalUnreadItemCount;
                         }
-                        Rainmeter.Log(Rainmeter.LogLevel.Error, "3 " + total);
                         return total;
                     }
                     else
                     {
                         int total = 0;
-                        Rainmeter.Log(Rainmeter.LogLevel.Error, "4");
                         foreach (MAPIFolderResult f in folders)
                         {
-                            Rainmeter.Log(Rainmeter.LogLevel.Error, "5");
                             total += f.UnreadItemCount;
                         }
-                        Rainmeter.Log(Rainmeter.LogLevel.Error, "6 " + total);
                         return total;
                     }
                 default: return base.GetDouble(key, Instance);
